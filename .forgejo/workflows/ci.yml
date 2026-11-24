@@ -38,7 +38,7 @@ jobs:
       - name: Analysis tests (pure math, no plugin rendering)
         run: |
           python3 -m venv /tmp/venv
-          /tmp/venv/bin/pip install -q $(grep -E '^(numpy|scipy|pytest)==' analysis/requirements.txt)
+          /tmp/venv/bin/pip install -q numpy scipy pytest # unpinned: runner's Python may be older than requirements.txt's pins need
           /tmp/venv/bin/python -m pytest -q analysis/tests
       - run: cargo xtask bundle sosig_maxxer --release
       - run: clap-validator validate "target/bundled/Sosig Maxxer.clap"
