@@ -1,5 +1,11 @@
 # Sosig Maxxer
 
+| Maxx 0% | Maxx 100% |
+|---|---|
+| ![Sosig Maxxer at Maxx 0%](docs/img/maxx-0.png) | ![Sosig Maxxer at Maxx 100%](docs/img/maxx-100.png) |
+
+<!-- regenerate: cargo test --release --lib -- --ignored readme_screenshots -->
+
 Free saturator plugin (VST3 + CLAP) for macOS, Windows and Linux. Three knobs:
 
 - **Maxx** — drive (+39 dB over its range) into a linked peak limiter and hard clipper. Higher Maxx

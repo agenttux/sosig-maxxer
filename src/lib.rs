@@ -22,7 +22,7 @@ pub struct SosigParams {
 /// dB of drive per unit of Gain travel (see docs/spec/behavior.md, Drive).
 pub const GAIN_DB: f32 = 72.0;
 
-fn knob(name: &str, default: f32) -> FloatParam {
+pub(crate) fn knob(name: &str, default: f32) -> FloatParam {
     FloatParam::new(name, default, FloatRange::Linear { min: 0.0, max: 1.0 })
         .with_value_to_string(formatters::v2s_f32_percentage(0))
         .with_string_to_value(formatters::s2v_f32_percentage())

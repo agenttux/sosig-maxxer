@@ -66,99 +66,114 @@ pub fn create(params: Arc<SosigParams>, peak: Arc<AtomicF32>) -> Option<Box<dyn 
     create_egui_editor(
         params.editor_state.clone(),
         Anim::default(),
-        |ctx, _| {
-            egui_extras::install_image_loaders(ctx);
-            let mut v = egui::Visuals::light();
-            v.panel_fill = WHITE;
-            v.override_text_color = Some(BLACK);
-            ctx.set_visuals(v);
-        },
+        |ctx, _| setup(ctx),
         move |ctx, setter, anim| {
             let now = ctx.input(|i| i.time);
             let dt = ((now - anim.t) as f32).clamp(0.0, 0.05);
             anim.t = now;
             step(anim, peak.swap(0.0, Relaxed), dt);
             ctx.request_repaint();
-
-            egui::CentralPanel::default()
-                .frame(egui::Frame::NONE.fill(WHITE))
-                .show(ctx, |ui| {
-                    let r = ui.max_rect();
-                    // scale the fixed 560x300 layout to whatever the window is
-                    let s = (r.width() / SIZE.0 as f32).min(r.height() / SIZE.1 as f32);
-                    let at = |x: f32, y: f32| r.min + vec2(x, y) * s;
-
-                    let icon = Rect::from_min_size(at(10.0, 10.0), Vec2::splat(260.0 * s));
-                    egui::Image::new(egui::include_image!("../assets/sausage.svg"))
-                        .tint(BLACK)
-                        .paint_at(ui, icon);
-                    let fc = icon.min + vec2(FACE.0, FACE.1) * icon.width();
-                    draw_face(
-                        ui.painter(),
-                        fc,
-                        FACE.2 * icon.width(),
-                        face_shape(params.fat.value()),
-                        anim,
-                    );
-
-                    knob(
-                        ui,
-                        setter,
-                        &params.fat,
-                        at(340.0, 105.0),
-                        58.0 * s,
-                        "MAXX",
-                        None,
-                    );
-                    knob(
-                        ui,
-                        setter,
-                        &params.color,
-                        at(480.0, 170.0),
-                        58.0 * s,
-                        "COLOR",
-                        None,
-                    );
-                    // like the original: drag steps 0.5 dB, Shift-drag 0.1 dB
-                    let db = |d: f32| d / crate::GAIN_DB;
-                    knob(
-                        ui,
-                        setter,
-                        &params.gain,
-                        at(395.0, 235.0),
-                        20.0 * s,
-                        "GAIN",
-                        Some((db(0.5), db(0.1))),
-                    );
-
-                    // clip LED, left of the Gain knob
-                    ui.painter().circle(
-                        at(357.0, 235.0),
-                        6.0 * s,
-                        if anim.clip_hold > 0.0 { BLACK } else { WHITE },
-                        Stroke::new(2.0f32, BLACK),
-                    );
-                    ui.painter().text(
-                        at(14.0, 290.0),
-                        Align2::LEFT_BOTTOM,
-                        "SOSIG MAXXER",
-                        FontId::proportional(20.0 * s),
-                        BLACK,
-                    );
-                    // CC BY 3.0 credit for assets/sausage.svg, on the version line clear of the knobs
-                    ui.painter().text(
-                        at(546.0, 290.0),
-                        Align2::RIGHT_BOTTOM,
-                        concat!(
-                            "Sausage icon by endang firmansyah, Noun Project (CC BY 3.0)   v",
-                            env!("CARGO_PKG_VERSION")
-                        ),
-                        FontId::proportional(9.0 * s),
-                        MID,
-                    );
-                });
+            draw(ctx, setter, &params, anim);
         },
     )
+}
+
+fn setup(ctx: &egui::Context) {
+    egui_extras::install_image_loaders(ctx);
+    let mut v = egui::Visuals::light();
+    v.panel_fill = WHITE;
+    v.override_text_color = Some(BLACK);
+    ctx.set_visuals(v);
+}
+
+fn draw(ctx: &egui::Context, setter: &ParamSetter, params: &SosigParams, anim: &Anim) {
+    egui::CentralPanel::default()
+        .frame(egui::Frame::NONE.fill(WHITE))
+        .show(ctx, |ui| {
+            let r = ui.max_rect();
+            // scale the fixed 560x300 layout to whatever the window is
+            let s = (r.width() / SIZE.0 as f32).min(r.height() / SIZE.1 as f32);
+            let at = |x: f32, y: f32| r.min + vec2(x, y) * s;
+
+            let icon = Rect::from_min_size(at(10.0, 10.0), Vec2::splat(260.0 * s));
+            egui::Image::new(egui::include_image!("../assets/sausage.svg"))
+                .tint(BLACK)
+                .paint_at(ui, icon);
+            let fc = icon.min + vec2(FACE.0, FACE.1) * icon.width();
+            draw_face(
+                ui.painter(),
+                fc,
+                FACE.2 * icon.width(),
+                face_shape(params.fat.value()),
+                anim,
+            );
+
+            knob(
+                ui,
+                setter,
+                &params.fat,
+                at(340.0, 105.0),
+                58.0 * s,
+                "MAXX",
+                None,
+            );
+            knob(
+                ui,
+                setter,
+                &params.color,
+                at(480.0, 170.0),
+                58.0 * s,
+                "COLOR",
+                None,
+            );
+            // like the original: drag steps 0.5 dB, Shift-drag 0.1 dB
+            let db = |d: f32| d / crate::GAIN_DB;
+            knob(
+                ui,
+                setter,
+                &params.gain,
+                at(395.0, 235.0),
+                20.0 * s,
+                "GAIN",
+                Some((db(0.5), db(0.1))),
+            );
+
+            // clip LED, left of the Gain knob
+            ui.painter().circle(
+                at(357.0, 235.0),
+                6.0 * s,
+                if anim.clip_hold > 0.0 { BLACK } else { WHITE },
+                Stroke::new(2.0f32, BLACK),
+            );
+            // faux bold: the bundled font has no bold face, so overprint shifted copies
+            for (dx, dy) in [
+                (0.0, 0.0),
+                (0.6, 0.0),
+                (1.2, 0.0),
+                (0.0, 0.4),
+                (0.6, 0.4),
+                (1.2, 0.4),
+            ] {
+                ui.painter().text(
+                    at(14.0, 290.0) + vec2(dx, dy) * s,
+                    Align2::LEFT_BOTTOM,
+                    "SOSIG MAXXER",
+                    FontId::proportional(20.0 * s),
+                    BLACK,
+                );
+            }
+            // CC BY 3.0 credit for assets/sausage.svg, on the version line clear of the knobs
+            ui.painter().text(
+                at(546.0, 290.0),
+                Align2::RIGHT_BOTTOM,
+                concat!(
+                    "Sausage icon by endang firmansyah, Noun Project (CC BY 3.0)   v",
+                    env!("CARGO_PKG_VERSION")
+                ),
+                FontId::proportional(9.0 * s),
+                MID,
+            );
+        });
 }
 
 /// Rotary knob: vertical drag (Shift = fine), double-click resets. 270 degree sweep.
@@ -351,4 +366,51 @@ fn draw_face(p: &egui::Painter, c: Pos2, w: f32, g: FaceGeom, a: &Anim) {
 
 pub fn default_state() -> Arc<EguiState> {
     EguiState::from_size(SIZE.0, SIZE.1)
+}
+
+/// Renders the README screenshots headless (no window, no screen capture):
+/// `cargo test --release --lib -- --ignored readme_screenshots`
+#[cfg(test)]
+mod screenshots {
+    use super::*;
+
+    struct NoHost;
+    impl GuiContext for NoHost {
+        fn plugin_api(&self) -> PluginApi {
+            PluginApi::Clap
+        }
+        fn request_resize(&self) -> bool {
+            false
+        }
+        unsafe fn raw_begin_set_parameter(&self, _: ParamPtr) {}
+        unsafe fn raw_set_parameter_normalized(&self, _: ParamPtr, _: f32) {}
+        unsafe fn raw_end_set_parameter(&self, _: ParamPtr) {}
+        fn get_state(&self) -> PluginState {
+            unimplemented!()
+        }
+        fn set_state(&self, _: PluginState) {}
+    }
+
+    #[test]
+    #[ignore]
+    fn readme_screenshots() {
+        for (fat, file) in [(0.0, "maxx-0.png"), (1.0, "maxx-100.png")] {
+            let params = SosigParams {
+                fat: crate::knob("Maxx", fat),
+                ..Default::default()
+            };
+            let anim = Anim::default();
+            let mut h = egui_kittest::Harness::builder()
+                .with_size(vec2(SIZE.0 as f32, SIZE.1 as f32))
+                .with_pixels_per_point(2.0)
+                .build(move |ctx| {
+                    setup(ctx);
+                    draw(ctx, &ParamSetter::new(&NoHost), &params, &anim);
+                });
+            h.run();
+            let path = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/img/");
+            std::fs::create_dir_all(path).unwrap();
+            h.render().unwrap().save(format!("{path}{file}")).unwrap();
+        }
+    }
 }

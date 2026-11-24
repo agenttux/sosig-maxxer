@@ -20,3 +20,7 @@ nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "de
 [profile.release]
 lto = "thin"
 strip = "symbols"
+
+[dev-dependencies]
+egui_kittest = { version = "0.31", features = ["wgpu"] }
+image = { version = "0.25.10", default-features = false, features = ["png"] }
