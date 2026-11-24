@@ -1,0 +1,17 @@
+plugins/
+target/
+analysis/data/ours/
+analysis/data/cache/
+analysis/data/listen/
+analysis/corpus/local/
+.venv/
+__pycache__/
+.DS_Store
+# never commit plugin binaries (incl. the reference plugin) or audio
+*.component
+*.vst
+*.vst3
+*.clap
+*.aaxplugin
+*.mp3
+*.wav

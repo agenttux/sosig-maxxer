@@ -1,0 +1,88 @@
+# Push to main: tag the next version (shared next-version action, "#minor"/"#major" in a
+# commit subject, else patch), create the release, then build and attach plugin bundles.
+# No build caches here on purpose: Forgejo's cache isn't scoped by branch, so a PR editing ci.yml
+# could plant one. Shipped binaries are built cold. macOS is built on a Mac (scripts/publish-mac.sh).
+name: Release
+on:
+  push:
+    branches: [main]
+
+env:
+  CARGO_XWIN: 0.23.1
+# Release token is only given to the steps that call the Forgejo API, never to build steps.
+
+jobs:
+  version:
+    runs-on: docker
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      number: ${{ steps.v.outputs.number }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: v
+        uses: https://git.popat.org/agenttux/forgejo-actions/next-version@20f2932df0ff5dd1615205ed1e90bad12011ff3b # v1.0.1
+      - env:
+          TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+        run: bash scripts/release.sh release "${{ steps.v.outputs.version }}"
+
+  linux:
+    needs: version
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.version }}
+          persist-credentials: false
+      - name: Install Rust and plugin build deps
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq libasound2-dev libgl-dev libjack-jackd2-dev libx11-xcb-dev libxcb1-dev \
+            libxcb-dri2-0-dev libxcb-icccm4-dev libxcursor-dev libxkbcommon-dev libxcb-shape0-dev libxcb-xfixes0-dev
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - run: bash scripts/release.sh set-version "${{ needs.version.outputs.number }}"
+      - run: cargo xtask bundle sosig_maxxer --release
+      - run: |
+          out="sosig-maxxer-${{ needs.version.outputs.number }}-linux-x86_64.tar.gz"
+          tar -czf "$out" -C target/bundled "Sosig Maxxer.vst3" "Sosig Maxxer.clap"
+      - env:
+          TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+        run: |
+          out="sosig-maxxer-${{ needs.version.outputs.number }}-linux-x86_64.tar.gz"
+          id=$(bash scripts/release.sh release "${{ needs.version.outputs.version }}")
+          bash scripts/release.sh upload "$id" "$out"
+
+  windows:
+    needs: version
+    runs-on: docker
+    timeout-minutes: 30
+    env:
+      XWIN_ARCH: x86_64 # skip the aarch64 SDK download
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.version }}
+          persist-credentials: false
+      - name: Install Rust and cross toolchain
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq lld llvm clang zip
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --target x86_64-pc-windows-msvc
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      # From source (glibc): the prebuilt musl binary hung on the MSVC CRT download in CI.
+      - run: cargo install cargo-xwin --locked --version "$CARGO_XWIN"
+      - run: bash scripts/release.sh set-version "${{ needs.version.outputs.number }}"
+      - run: |
+          eval "$(cargo xwin env --target x86_64-pc-windows-msvc)"
+          cargo xtask bundle sosig_maxxer --release --target x86_64-pc-windows-msvc
+      - run: |
+          out="$PWD/sosig-maxxer-${{ needs.version.outputs.number }}-windows-x86_64.zip"
+          (cd target/bundled && zip -qr "$out" "Sosig Maxxer.vst3" "Sosig Maxxer.clap")
+      - env:
+          TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+        run: |
+          out="$PWD/sosig-maxxer-${{ needs.version.outputs.number }}-windows-x86_64.zip"
+          id=$(bash scripts/release.sh release "${{ needs.version.outputs.version }}")
+          bash scripts/release.sh upload "$id" "$out"

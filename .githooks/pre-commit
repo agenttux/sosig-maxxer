@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Refuse to commit plugin binaries or audio (the reference plugin and licensed samples stay local).
+# Enable once per clone: git config core.hooksPath .githooks
+bad=$(git diff --cached --name-only --diff-filter=AM |
+  grep -Ei '\.(component|vst|vst3|clap|aaxplugin|dll|dylib|so|mp3|wav|flac|aif|aiff)(/|$)' || true)
+[ -z "$bad" ] || { echo "refusing to commit binaries/audio:"; echo "$bad"; exit 1; }

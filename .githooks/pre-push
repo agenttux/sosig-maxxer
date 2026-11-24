@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# On a push to main from a Mac, build and upload the macOS plugin zip once CI has tagged the release.
+# Enable once per clone: git config core.hooksPath .githooks
+[ "$(uname)" = Darwin ] || exit 0
+while read -r _ _ remote_ref _; do
+  [ "$remote_ref" = refs/heads/main ] || continue
+  prev=$(git ls-remote --tags --refs "$1" 'v*' | sed 's#.*refs/tags/##' | sort -V | tail -1)
+  log="$HOME/Library/Logs/sosig-maxxer-publish-mac.log"
+  nohup bash "$(git rev-parse --show-toplevel)/scripts/publish-mac.sh" --after "$prev" >"$log" 2>&1 &
+  echo "macOS build will upload after CI tags the release (log: $log)"
+done
+exit 0
